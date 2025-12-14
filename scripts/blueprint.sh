@@ -1,5 +1,5 @@
 ﻿#!/usr/bin/env bash
 set -euo pipefail
-source "\/common.sh"
+source "$(dirname "$0")/common.sh"
 
-dc exec "\" blueprint "\$@"
+dc exec "${BP_PANEL_SERVICE}" blueprint "$@"
