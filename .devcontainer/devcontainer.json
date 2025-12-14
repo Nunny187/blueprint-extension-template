@@ -1,11 +1,11 @@
 ﻿{
   "name": "Blueprint Extension Dev",
+  "runServices": ["dev"],
   "dockerComposeFile": [
     "../stack/docker-compose.yml",
     "../docker/stack.override.yml",
     "compose.yml"
   ],
-  "runServices": ["dev", "panel"],
   "service": "dev",
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "features": {

@@ -1,3 +1,20 @@
+<#
+  Windows PowerShell script to bootstrap the Blueprint development environment.
+
+  This script mirrors the behaviour of the Bash `bootstrap.sh` script. It
+  initializes any Git submodules or clones the Blueprint Docker stack if
+  necessary, starts the docker compose stack with the appropriate override
+  configuration, installs the extension using the Blueprint CLI, and creates
+  default development users for convenience.
+  
+  Two users are created:
+    - dev  (admin=1, password "dev")
+    - test (admin=0, password "test")
+
+  Running this script multiple times is idempotent. If the users already exist
+  the creation commands will emit an error which is safely ignored.
+#>
+
 $ErrorActionPreference = "Stop"
 
 # Config (override by setting env vars before running)
@@ -49,4 +66,33 @@ if (-not $ready) {
 docker compose -f .\stack\docker-compose.yml -f .\docker\stack.override.yml `
     exec -T $env:BP_PANEL_SERVICE blueprint -i $env:BP_EXTENSION_SLUG
 
-Write-Host "Done. Your dev stack should be up and your extension installed." -ForegroundColor Green
+# -----------------------------------------------------------------------------
+# Create default development users (dev/admin and test)
+#
+# Use the Pterodactyl Artisan CLI to generate accounts. These commands may
+# produce errors if the users already exist; these are caught and ignored so
+# subsequent runs do not fail.
+try {
+    docker compose -f .\stack\docker-compose.yml -f .\docker\stack.override.yml `
+        exec -T $env:BP_PANEL_SERVICE php artisan p:user:make `
+        --email="dev@example.com" `
+        --username="dev" `
+        --name-first="Dev" `
+        --name-last="User" `
+        --password="dev" `
+        --admin=1 | Out-Null
+    docker compose -f .\stack\docker-compose.yml -f .\docker\stack.override.yml `
+        exec -T $env:BP_PANEL_SERVICE php artisan p:user:make `
+        --email="test@example.com" `
+        --username="test" `
+        --name-first="Test" `
+        --name-last="User" `
+        --password="test" `
+        --admin=0 | Out-Null
+    Write-Host "Created default dev (admin) and test (non-admin) users." -ForegroundColor Green
+}
+catch {
+    Write-Host "Failed to create default users. They might already exist." -ForegroundColor Yellow
+}
+
+Write-Host "Done. Your dev stack should be up, your extension installed, and default users created." -ForegroundColor Green

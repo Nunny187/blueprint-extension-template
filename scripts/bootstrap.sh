@@ -1,28 +1,39 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Default panel service name (can be overridden by setting BP_PANEL_SERVICE env var)
 : "${BP_PANEL_SERVICE:=panel}"
+# Default extension slug (can be overridden by setting BP_EXTENSION_SLUG env var)
 : "${BP_EXTENSION_SLUG:=my-extension}"
 
-# Prefer submodule init/update if this repo uses submodules
+# Prefer submodule init/update if this repo uses submodules. Otherwise clone
+# the Blueprint docker stack into the local ./stack directory. This ensures
+# that all required containers and configuration are available for the dev
+# environment.
 if [ -f "./.gitmodules" ]; then
   git submodule update --init --recursive
 elif [ ! -d "./stack" ]; then
   git clone https://github.com/BlueprintFramework/docker stack
 fi
 
-# Ensure env file exists (create from example if available)
+# Ensure the stack environment file exists. If an example file is present use
+# it as a base, otherwise warn the user so they know to create their own.
 if [ ! -f "./stack/.env" ] && [ -f "./stack/.env.example" ]; then
   cp ./stack/.env.example ./stack/.env
 elif [ ! -f "./stack/.env" ]; then
   echo "Warning: stack/.env (or .env.example) not found. You may need to create/configure it." >&2
 fi
 
+# Bring up the docker stack with our override that mounts the extension into
+# the panel container. The --detach flag returns immediately while the
+# containers are starting.
 docker compose -f ./stack/docker-compose.yml -f ./docker/stack.override.yml up -d
 
 echo "Waiting for panel container to be ready..."
 ready=0
 for i in $(seq 1 60); do
+  # Test for the presence of the Blueprint CLI inside the panel container. Once
+  # the CLI is available we know the panel has finished its bootstrapping.
   if docker compose -f ./stack/docker-compose.yml -f ./docker/stack.override.yml exec -T "$BP_PANEL_SERVICE" sh -lc "command -v blueprint >/dev/null 2>&1"; then
     ready=1
     break
@@ -36,6 +47,41 @@ if [ "$ready" -ne 1 ]; then
   exit 1
 fi
 
+# Install the development extension via the Blueprint CLI. This reads the
+# extension manifest and registers it with the panel so it is available for
+# development and testing.
 docker compose -f ./stack/docker-compose.yml -f ./docker/stack.override.yml exec -T "$BP_PANEL_SERVICE" blueprint -i "$BP_EXTENSION_SLUG"
+
+# -----------------------------------------------------------------------------
+# Create default development users
+#
+# To make it easy to log into the panel for development we automatically
+# generate two accounts:
+#   * dev  – Admin user with password "dev"
+#   * test – Non‑admin user with password "test"
+#
+# We use the Pterodactyl artisan CLI to create users. If the user already
+# exists the command will exit with a non‑zero status. We append `|| true`
+# to ensure the script continues even if users are already present.
+
+docker compose -f ./stack/docker-compose.yml -f ./docker/stack.override.yml exec -T "$BP_PANEL_SERVICE" \
+  php artisan p:user:make \
+    --email="dev@example.com" \
+    --username="dev" \
+    --name-first="Dev" \
+    --name-last="User" \
+    --password="dev" \
+    --admin=1 || true
+
+docker compose -f ./stack/docker-compose.yml -f ./docker/stack.override.yml exec -T "$BP_PANEL_SERVICE" \
+  php artisan p:user:make \
+    --email="test@example.com" \
+    --username="test" \
+    --name-first="Test" \
+    --name-last="User" \
+    --password="test" \
+    --admin=0 || true
+
+echo "Created default dev (admin) and test (non‑admin) users."
 
 echo "Done."
