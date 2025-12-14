@@ -1,4 +1,6 @@
 ﻿services:
   panel:
     volumes:
-      - ../extension:/srv/pterodactyl/extensions/my-extension:cached
+      - ../extension:/app/.blueprint/dev/my-extension:cached
+    ports:
+      - "4080:80"

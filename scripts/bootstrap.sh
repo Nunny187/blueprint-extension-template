@@ -27,7 +27,7 @@ fi
 # Bring up the docker stack with our override that mounts the extension into
 # the panel container. The --detach flag returns immediately while the
 # containers are starting.
-docker compose -f ./stack/docker-compose.yml -f ./docker/stack.override.yml up -d
+docker compose --env-file ./docker/.env -f ./stack/docker-compose.yml -f ./docker/stack.override.yml up -d
 
 echo "Waiting for panel container to be ready..."
 ready=0
@@ -46,11 +46,6 @@ if [ "$ready" -ne 1 ]; then
   echo "  docker compose -f ./stack/docker-compose.yml -f ./docker/stack.override.yml logs -f" >&2
   exit 1
 fi
-
-# Install the development extension via the Blueprint CLI. This reads the
-# extension manifest and registers it with the panel so it is available for
-# development and testing.
-docker compose -f ./stack/docker-compose.yml -f ./docker/stack.override.yml exec -T "$BP_PANEL_SERVICE" blueprint -i "$BP_EXTENSION_SLUG"
 
 # -----------------------------------------------------------------------------
 # Create default development users

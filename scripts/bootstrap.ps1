@@ -40,7 +40,7 @@ if (-not (Test-Path ".\stack\.env")) {
 }
 
 # Bring up stack with your override
-docker compose -f .\stack\docker-compose.yml -f .\docker\stack.override.yml up -d
+docker compose --env-file .\docker\.env -f .\stack\docker-compose.yml -f .\docker\stack.override.yml up -d
 
 # Wait for Blueprint CLI to be available in the panel container
 Write-Host "Waiting for panel container to be ready..." -ForegroundColor Cyan
@@ -61,10 +61,6 @@ if (-not $ready) {
     Write-Host "Panel did not become ready in time. Check logs with: docker compose -f .\stack\docker-compose.yml logs -f" -ForegroundColor Red
     exit 1
 }
-
-# Install extension via Blueprint CLI in panel container
-docker compose -f .\stack\docker-compose.yml -f .\docker\stack.override.yml `
-    exec -T $env:BP_PANEL_SERVICE blueprint -i $env:BP_EXTENSION_SLUG
 
 # -----------------------------------------------------------------------------
 # Create default development users (dev/admin and test)
