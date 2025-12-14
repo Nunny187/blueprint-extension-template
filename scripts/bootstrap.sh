@@ -29,15 +29,19 @@ fi
 # Populate secret values in docker/.env if they are empty or commented out
 secret_vars=(MARIADB_ROOT_PASS MARIADB_USER_PASS VALKEY_PASS HASH_SALT)
 for var in "${secret_vars[@]}"; do
-  if ! grep -q "^${var}=" ./docker/.env || grep -q "^${var}=$" ./docker/.env; then
-    random_val=$(openssl rand -base64 32)
-    # If the line exists, replace it; otherwise append it
-    if grep -q "^${var}=" ./docker/.env; then
-      sed -i "s/^${var}=.*/${var}=${random_val}/" ./docker/.env
-    else
-      echo "${var}=${random_val}" >> ./docker/.env
+  if grep -q "^${var}=" ./docker/.env; then
+    # Key exists; check if value is empty
+    if grep -q "^${var}=$" ./docker/.env; then
+      random_val=$(openssl rand -base64 32)
+      # Replace only a blank value
+      sed -i "s/^${var}=$/${var}=${random_val}/" ./docker/.env
+      echo "Filled ${var}"
     fi
-    echo "Generated ${var}"
+  else
+    # Key does not exist; append a new line
+    random_val=$(openssl rand -base64 32)
+    echo "${var}=${random_val}" >> ./docker/.env
+    echo "Added ${var}"
   fi
 done
 # -----------------------------------------------------------------------------

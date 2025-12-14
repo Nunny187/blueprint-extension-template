@@ -41,20 +41,44 @@ if (-not (Test-Path ".\docker\.env")) {
 }
 
 # Populate secret values in docker\.env
-$secretVars = @("MARIADB_ROOT_PASS", "MARIADB_USER_PASS", "VALKEY_PASS", "HASH_SALT")
-foreach ($var in $secretVars) {
-    $envContent = Get-Content ".\docker\.env"
-    if ($envContent -notmatch "^$var=" -or $envContent -match "^$var=$") {
-        # Generate random base64 string using OpenSSL
-        $randomVal = & openssl rand -base64 32
-        if ($envContent -match "^$var=") {
-            (Get-Content ".\docker\.env") -replace "^$var=.*$", "$var=$randomVal" | Set-Content ".\docker\.env"
-        } else {
-            Add-Content ".\docker\.env" "$var=$randomVal"
-        }
-        Write-Host "Generated $var"
+# Helper function to generate a 32‑byte base64 string
+function New-RandomBase64 {
+    try {
+        # Try openssl first
+        return & openssl rand -base64 32
+    }
+    catch {
+        # Fallback to .NET if openssl isn't available
+        $bytes = New-Object byte[] 32
+        [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+        return [Convert]::ToBase64String($bytes)
     }
 }
+
+$secretVars = @("MARIADB_ROOT_PASS", "MARIADB_USER_PASS", "VALKEY_PASS", "HASH_SALT")
+foreach ($var in $secretVars) {
+    $envPath = ".\docker\.env"
+    $content = Get-Content $envPath
+    $pattern = "^$var="
+    $match = $content | Select-String -Pattern $pattern -SimpleMatch
+
+    if ($match) {
+        # Key exists; check if value is empty
+        if ($content -match "^$var=$") {
+            $randomVal = New-RandomBase64
+            # Replace only the empty assignment
+            (Get-Content $envPath) -replace "^$var=$", "$var=$randomVal" | Set-Content $envPath
+            Write-Host "Filled $var"
+        }
+    }
+    else {
+        # Key does not exist; append a new line
+        $randomVal = New-RandomBase64
+        Add-Content $envPath "$var=$randomVal"
+        Write-Host "Added $var"
+    }
+}
+
 # -----------------------------------------------------------------------------
 # Bring up docker stack with override
 
