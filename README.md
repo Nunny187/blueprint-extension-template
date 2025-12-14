@@ -9,48 +9,48 @@ Reusable template repo for developing Blueprint extensions with:
 ## Quick start (VS Code Dev Container)
 
 1. Open this folder in VS Code
-2. Run: **Dev Containers: Reopen in Container**
+2. Run: Dev Containers: Reopen in Container
 3. In the devcontainer terminal, run:
 
-make bootstrap
+    make bootstrap
 
 That will bring up the stack and install the extension.
 
 ## Common commands
 
-make up
-make install
-make logs
-make shell
+    make up
+    make install
+    make logs
+    make shell
 
 Or without make:
 
-./scripts/up.sh
-./scripts/install.sh
-./scripts/blueprint.sh -l
+    ./scripts/up.sh
+    ./scripts/install.sh
+    ./scripts/blueprint.sh -l
 
 ## One-command setup (outside devcontainer)
 
-# Windows (PowerShell)
+### Windows (PowerShell)
 
-.\scripts\bootstrap.ps1
+    .\scripts\bootstrap.ps1
 
-# Linux/macOS
+### Linux / macOS
 
-./scripts/bootstrap.sh
+    ./scripts/bootstrap.sh
 
 ## Defaults (override with env vars)
 
-Main compose file: stack/docker-compose.yml
-Panel service name: panel
-Extension slug: my-extension
-Mount path: /srv/pterodactyl/extensions/my-extension
+- Main compose file: stack/docker-compose.yml
+- Panel service name: panel
+- Extension slug: my-extension
+- Mount path: /srv/pterodactyl/extensions/my-extension
 
-# Env overrides:
+Env overrides:
 
-BP_COMPOSE_BASE (default: -f stack/docker-compose.yml)
-BP_PANEL_SERVICE (default: panel)
-BP_EXTENSION_SLUG (default: my-extension)
+- BP_COMPOSE_BASE (default: -f stack/docker-compose.yml)
+- BP_PANEL_SERVICE (default: panel)
+- BP_EXTENSION_SLUG (default: my-extension)
 
 ## Enable Blueprint Developer Mode
 

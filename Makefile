@@ -11,7 +11,11 @@ BP_COMPOSE_ARGS := $(BP_COMPOSE_BASE) -f docker/stack.override.yml
 .PHONY: up down restart logs shell blueprint install bootstrap
 
 bootstrap:
+ifeq ($(OS),Windows_NT)
+	powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1
+else
 	./scripts/bootstrap.sh
+endif
 
 up:
 	./scripts/up.sh
