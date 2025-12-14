@@ -3,10 +3,7 @@ set -euo pipefail
 
 echo "Devcontainer ready."
 echo ""
-echo "Common commands:"
-echo "  ./scripts/up.sh         # start your panel stack (uses BP_COMPOSE_BASE)"
-echo "  ./scripts/install.sh    # install the extension via blueprint inside the panel"
-echo "  ./scripts/blueprint.sh  # run blueprint commands (pass args)"
+echo "Common command:"
 echo "  ./scripts/bootstrap.sh  # bootstrap the panel and create dev users"
 echo ""
 echo "Environment overrides:"
