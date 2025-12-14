@@ -40,44 +40,41 @@ if (-not (Test-Path ".\docker\.env")) {
     }
 }
 
-# Populate secret values in docker\.env
-# Helper function to generate a 32‑byte base64 string
-function New-RandomBase64 {
-    try {
-        # Try openssl first
-        return & openssl rand -base64 32
-    }
-    catch {
-        # Fallback to .NET if openssl isn't available
-        $bytes = New-Object byte[] 32
-        [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
-        return [Convert]::ToBase64String($bytes)
-    }
-}
-
+# Populate secret values in docker\.env (safe for Docker env-file)
+$envPath = ".\docker\.env"
 $secretVars = @("MARIADB_ROOT_PASS", "MARIADB_USER_PASS", "VALKEY_PASS", "HASH_SALT")
-foreach ($var in $secretVars) {
-    $envPath = ".\docker\.env"
-    $content = Get-Content $envPath
-    $pattern = "^$var="
-    $match = $content | Select-String -Pattern $pattern -SimpleMatch
 
-    if ($match) {
-        # Key exists; check if value is empty
-        if ($content -match "^$var=$") {
-            $randomVal = New-RandomBase64
-            # Replace only the empty assignment
-            (Get-Content $envPath) -replace "^$var=$", "$var=$randomVal" | Set-Content $envPath
-            Write-Host "Filled $var"
-        }
+# Read as a single string for easier regex, preserve as UTF-8
+$envText = Get-Content $envPath -Raw
+
+foreach ($var in $secretVars) {
+    # Match line like VAR=.... (value may be empty/whitespace)
+    $pattern = "(?m)^\Q$var\E=(.*)$"
+
+    $needsSet = $true
+    $m = [regex]::Match($envText, $pattern)
+    if ($m.Success) {
+        # Treat blank/whitespace as missing
+        if ($m.Groups[1].Value -match "^\s*$") { $needsSet = $true } else { $needsSet = $false }
     }
-    else {
-        # Key does not exist; append a new line
-        $randomVal = New-RandomBase64
-        Add-Content $envPath "$var=$randomVal"
-        Write-Host "Added $var"
+
+    if ($needsSet) {
+        $randomVal = ((& openssl rand -base64 32) | Out-String).Trim()
+
+        if ($m.Success) {
+            $envText = [regex]::Replace($envText, $pattern, "$var=$randomVal", 1)
+        }
+        else {
+            if (-not $envText.EndsWith("`n")) { $envText += "`n" }
+            $envText += "$var=$randomVal`n"
+        }
+
+        Write-Host "Generated $var"
     }
 }
+
+# Write back in UTF-8 so Docker can parse it
+Set-Content -Path $envPath -Value $envText -Encoding utf8
 
 # -----------------------------------------------------------------------------
 # Bring up docker stack with override
@@ -87,6 +84,7 @@ docker compose --env-file .\docker\.env -f .\stack\docker-compose.yml -f .\docke
 
 # Wait for Blueprint CLI to be available in the panel container
 Write-Host "Waiting for panel container to be ready..." -ForegroundColor Cyan
+Start-Sleep -Seconds 10
 $ready = $false
 for ($i = 0; $i -lt 60; $i++) {
     try {
