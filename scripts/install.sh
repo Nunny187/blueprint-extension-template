@@ -1,0 +1,5 @@
+﻿#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/common.sh"
+
+dc exec "${BP_PANEL_SERVICE}" blueprint -i "${BP_EXTENSION_SLUG}"

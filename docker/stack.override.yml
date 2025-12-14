@@ -1,0 +1,4 @@
+﻿services:
+  panel:
+    volumes:
+      - ../extension:/srv/pterodactyl/extensions/my-extension:cached
