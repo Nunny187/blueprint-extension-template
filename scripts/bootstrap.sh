@@ -26,24 +26,34 @@ if [ ! -f "./docker/.env" ]; then
   fi
 fi
 
-# Populate secret values in docker/.env if they are empty or commented out
+# Populate secret values in docker/.env if they are missing or empty
 secret_vars=(MARIADB_ROOT_PASS MARIADB_USER_PASS VALKEY_PASS HASH_SALT)
+
+# Normalize CRLF -> LF (no-op if already LF)
+sed -i.bak 's/\r$//' ./docker/.env 2>/dev/null || true
+rm -f ./docker/.env.bak
+
 for var in "${secret_vars[@]}"; do
-  if grep -q "^${var}=" ./docker/.env; then
-    # Key exists; check if value is empty
-    if grep -q "^${var}=$" ./docker/.env; then
-      random_val=$(openssl rand -base64 32)
-      # Replace only a blank value
-      sed -i "s/^${var}=$/${var}=${random_val}/" ./docker/.env
+  random_val="$(openssl rand -base64 32)"
+
+  # Escape replacement for sed (& and delimiter)
+  esc_val="$(printf '%s' "$random_val" | sed 's/[&|]/\\&/g')"
+
+  if grep -Eq "^${var}=" ./docker/.env; then
+    # If blank or whitespace-only (after the =) fill it
+    if grep -Eq "^${var}=[[:space:]]*$" ./docker/.env; then
+      # Replace the whole line for that key
+      sed -i.bak -E "s|^${var}=.*$|${var}=${esc_val}|" ./docker/.env
+      rm -f ./docker/.env.bak
       echo "Filled ${var}"
     fi
   else
-    # Key does not exist; append a new line
-    random_val=$(openssl rand -base64 32)
     echo "${var}=${random_val}" >> ./docker/.env
     echo "Added ${var}"
   fi
 done
+
+
 # -----------------------------------------------------------------------------
 # Start the Docker stack
 
@@ -53,6 +63,7 @@ done
 docker compose --env-file ./docker/.env -f ./stack/docker-compose.yml -f ./docker/stack.override.yml up -d
 
 echo "Waiting for panel container to be ready..."
+sleep 20
 ready=0
 for i in $(seq 1 60); do
   # Test for the presence of the Blueprint CLI inside the panel container. Once
