@@ -23,15 +23,26 @@ Copy the example .env file if necessary so you can configure ports and credentia
 
 Bring up the docker-compose stack with the extension mounted into the panel container.
 
-Install your extension via the Blueprint CLI (using the BP_EXTENSION_SLUG environment variable; default my-extension).
-
 Automatically create two development accounts:
 
 dev — password dev, admin privileges (--admin=1)
 
 test — password test, regular user (--admin=0)
 
-After the script completes, open your browser to https://localhost (or whatever domain/port you configured) and log in with either of the accounts above. You can then begin working on your extension inside the extension/ folder, and changes will reflect inside the running panel.
+# After the script completes
+
+After the script completes, open your browser to https://localhost
+(or whatever domain/port you configured) and log in with the dev account above. Navigate to /admin/extensions, select Blueprint, and set developer to true (this only needs to be done once).
+
+To scaffold your extension, execute the blueprint -init command inside the panel container:
+
+Create a new extension from a template and fill in metadata
+
+docker compose exec panel blueprint -init
+
+This command walks you through selecting a template, naming your extension and generating type definitions. Most of these options can be changed later.
+
+You can then begin working on your extension inside the extension/ folder, and changes will reflect inside the running panel.
 
 ## Environment variables
 

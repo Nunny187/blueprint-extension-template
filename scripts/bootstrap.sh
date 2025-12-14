@@ -16,13 +16,32 @@ elif [ ! -d "./stack" ]; then
   git clone https://github.com/BlueprintFramework/docker stack
 fi
 
-# Ensure the stack environment file exists. If an example file is present use
-# it as a base, otherwise warn the user so they know to create their own.
-if [ ! -f "./stack/.env" ] && [ -f "./stack/.env.example" ]; then
-  cp ./stack/.env.example ./stack/.env
-elif [ ! -f "./stack/.env" ]; then
-  echo "Warning: stack/.env (or .env.example) not found. You may need to create/configure it." >&2
+# Ensure docker/.env exists – copy from example if missing
+if [ ! -f "./docker/.env" ]; then
+  if [ -f "./docker/.env.example" ]; then
+    cp ./docker/.env.example ./docker/.env
+  else
+    echo "Error: docker/.env.example not found. Please create a docker/.env file." >&2
+    exit 1
+  fi
 fi
+
+# Populate secret values in docker/.env if they are empty or commented out
+secret_vars=(MARIADB_ROOT_PASS MARIADB_USER_PASS VALKEY_PASS HASH_SALT)
+for var in "${secret_vars[@]}"; do
+  if ! grep -q "^${var}=" ./docker/.env || grep -q "^${var}=$" ./docker/.env; then
+    random_val=$(openssl rand -base64 32)
+    # If the line exists, replace it; otherwise append it
+    if grep -q "^${var}=" ./docker/.env; then
+      sed -i "s/^${var}=.*/${var}=${random_val}/" ./docker/.env
+    else
+      echo "${var}=${random_val}" >> ./docker/.env
+    fi
+    echo "Generated ${var}"
+  fi
+done
+# -----------------------------------------------------------------------------
+# Start the Docker stack
 
 # Bring up the docker stack with our override that mounts the extension into
 # the panel container. The --detach flag returns immediately while the

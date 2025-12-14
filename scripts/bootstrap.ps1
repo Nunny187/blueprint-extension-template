@@ -29,15 +29,34 @@ elseif (-not (Test-Path ".\stack")) {
     git clone https://github.com/BlueprintFramework/docker stack
 }
 
-# Ensure env file exists (create from example if available)
-if (-not (Test-Path ".\stack\.env")) {
-    if (Test-Path ".\stack\.env.example") {
-        Copy-Item ".\stack\.env.example" ".\stack\.env"
+# Ensure docker\.env exists – copy from example if missing
+if (-not (Test-Path ".\docker\.env")) {
+    if (Test-Path ".\docker\.env.example") {
+        Copy-Item ".\docker\.env.example" ".\docker\.env"
     }
     else {
-        Write-Host "Warning: stack\.env (or .env.example) not found. You may need to create/configure it." -ForegroundColor Yellow
+        Write-Host "Error: docker\.env.example not found. Please create docker\.env." -ForegroundColor Red
+        exit 1
     }
 }
+
+# Populate secret values in docker\.env
+$secretVars = @("MARIADB_ROOT_PASS", "MARIADB_USER_PASS", "VALKEY_PASS", "HASH_SALT")
+foreach ($var in $secretVars) {
+    $envContent = Get-Content ".\docker\.env"
+    if ($envContent -notmatch "^$var=" -or $envContent -match "^$var=$") {
+        # Generate random base64 string using OpenSSL
+        $randomVal = & openssl rand -base64 32
+        if ($envContent -match "^$var=") {
+            (Get-Content ".\docker\.env") -replace "^$var=.*$", "$var=$randomVal" | Set-Content ".\docker\.env"
+        } else {
+            Add-Content ".\docker\.env" "$var=$randomVal"
+        }
+        Write-Host "Generated $var"
+    }
+}
+# -----------------------------------------------------------------------------
+# Bring up docker stack with override
 
 # Bring up stack with your override
 docker compose --env-file .\docker\.env -f .\stack\docker-compose.yml -f .\docker\stack.override.yml up -d
