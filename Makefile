@@ -8,7 +8,7 @@ export BP_EXTENSION_SLUG
 
 BP_COMPOSE_ARGS := $(BP_COMPOSE_BASE) -f docker/stack.override.yml
 
-.PHONY: up down restart logs shell blueprint install bootstrap
+.PHONY: up down restart logs shell blueprint install bootstrap doctor
 
 bootstrap:
 ifeq ($(OS),Windows_NT)
@@ -36,3 +36,8 @@ blueprint:
 
 install:
 	./scripts/install.sh
+
+doctor:
+	@echo BP_COMPOSE_BASE=$(BP_COMPOSE_BASE)
+	@echo BP_PANEL_SERVICE=$(BP_PANEL_SERVICE)
+	@echo BP_EXTENSION_SLUG=$(BP_EXTENSION_SLUG)
