@@ -2,8 +2,10 @@
   "name": "Blueprint Extension Dev",
   "dockerComposeFile": [
     "compose.yml",
+    "../stack/docker-compose.yml",
     "../docker/stack.override.yml"
   ],
+  "runServices": ["dev", "panel"],
   "service": "dev",
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "features": {
@@ -12,7 +14,7 @@
     "ghcr.io/devcontainers/features/node:1": { "version": "lts" }
   },
   "mounts": [
-  "source=${localWorkspaceFolder},target=/workspaces/${localWorkspaceFolderBasename},type=bind,consistency=cached"
+    "source=${localWorkspaceFolder},target=/workspaces/${localWorkspaceFolderBasename},type=bind,consistency=cached"
   ],
   "postCreateCommand": "bash .devcontainer/postCreate.sh",
   "customizations": {

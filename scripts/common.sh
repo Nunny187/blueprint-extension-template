@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Compose file(s) for your stack. Default assumes docker-compose.yml at repo root.
-: "${BP_COMPOSE_BASE:=-f docker-compose.yml}"
+: "${BP_COMPOSE_BASE:=-f stack/docker-compose.yml}"
 
 # Service name of your panel container in compose.
 : "${BP_PANEL_SERVICE:=panel}"
