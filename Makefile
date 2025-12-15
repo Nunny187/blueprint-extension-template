@@ -8,7 +8,7 @@ export BP_EXTENSION_SLUG
 
 BP_COMPOSE_ARGS := $(BP_COMPOSE_BASE) -f docker/stack.override.yml
 
-.PHONY: up down restart logs shell blueprint install bootstrap doctor
+.PHONY: up down restart logs shell blueprint install bootstrap doctor alias
 
 bootstrap:
 ifeq ($(OS),Windows_NT)
@@ -16,6 +16,9 @@ ifeq ($(OS),Windows_NT)
 else
 	./scripts/bootstrap.sh
 endif
+
+alias:
+	./scripts/alias-blueprint.sh
 
 up:
 	./scripts/up.sh

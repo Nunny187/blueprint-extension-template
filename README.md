@@ -1,62 +1,40 @@
-﻿### Blueprint Extension Development Environment
+### Blueprint Extension Development Environment
 
-This repository provides a simplified template for developing Blueprint
-extensions against a local Pterodactyl panel. It packages the official Blueprint Docker stack together with a set of helper scripts to make getting started easy.
+This repository ships a lightweight Blueprint Docker stack plus helper scripts so you can build and test extensions locally.
 
 ## Quick start
+- Clone the repo and `cd` into it.
+- Run the bootstrap script for your platform:
+  - Linux/macOS: `./scripts/bootstrap.sh`
+  - Windows PowerShell: `./scripts/bootstrap.ps1`
+- The script will clone/update the Blueprint stack, copy `docker/.env` from the example if needed, set `BP_HOST_WORKSPACE` to this repo path, generate missing secrets, start Docker, and create two users (dev/admin with password `dev`, test/non-admin with password `test`).
+- Visit `https://localhost` (or the host/port in `docker/.env`), log in as `dev`, go to `/admin/extensions`, select Blueprint, and set developer to true (once).
 
-Clone this repository and run the bootstrap script appropriate for your platform:
-
-# On Linux or macOS
-
-./scripts/bootstrap.sh
-
-# On Windows (PowerShell)
-
-./scripts/bootstrap.ps1
-
-The script will:
-
-Ensure the Blueprint Docker stack is available (via submodules or a fresh clone).
-
-Copy the example .env file if necessary so you can configure ports and credentials.
-
-Bring up the docker-compose stack with the extension mounted into the panel container.
-
-Automatically create two development accounts:
-
-dev — password dev, admin privileges (--admin=1)
-
-test — password test, regular user (--admin=0)
-
-# After the script completes
-
-After the script completes, open your browser to https://localhost
-(or whatever domain/port you configured) and log in with the dev account above. Navigate to /admin/extensions, select Blueprint, and set developer to true (this only needs to be done once).
-
-To scaffold your extension, execute the blueprint -init command inside the panel container:
-
-Create a new extension from a template and fill in metadata
-
-docker compose exec panel blueprint -init
-
-This command walks you through selecting a template, naming your extension and generating type definitions. Most of these options can be changed later.
-
-You can then begin working on your extension inside the extension/ folder, and changes will reflect inside the running panel.
+## Working on your extension
+- Code lives in `extension/` in this repo. It is bind-mounted into the panel at `/app/.blueprint/dev` via `docker/stack.override.yml`.
+- If you move the repo, update `BP_HOST_WORKSPACE` in `docker/.env` to the new absolute path, then rerun:
+  - `docker compose --env-file docker/.env -f stack/docker-compose.yml -f docker/stack.override.yml up -d`
+- Run Blueprint CLI inside the panel container:
+  - `docker compose --env-file docker/.env -f stack/docker-compose.yml -f docker/stack.override.yml exec panel blueprint -v`
+- To scaffold an extension from a template:
+  - `docker compose --env-file docker/.env -f stack/docker-compose.yml -f docker/stack.override.yml exec panel blueprint -init`
 
 ## Environment variables
 
-The bootstrap scripts honour the following environment variables to let you customise the build:
+| Variable             | Default Value                              | Description                                                               |
+| -------------------- | ------------------------------------------ | ------------------------------------------------------------------------- |
+| BP_HOST_WORKSPACE    | repo path detected by bootstrap scripts    | Absolute host path used to bind-mount `extension/` into the panel         |
+| BP_PANEL_SERVICE     | panel                                      | Name of the service running the Pterodactyl panel                         |
+| BP_EXTENSION_SLUG    | my-extension                               | Folder name of your extension under `extension/`                          |
 
-| Variable          | Default Value | Description                                                               |
-| ----------------- | ------------- | ------------------------------------------------------------------------- |
-| BP_PANEL_SERVICE  | panel         | Name of the service running the Pterodactyl panel within the compose file |
-| BP_EXTENSION_SLUG | my-extension  | Folder name of your extension under `extension/`                          |
+Override when invoking scripts, e.g. `BP_EXTENSION_SLUG=recolor ./scripts/bootstrap.sh`.
 
-You can override these variables when invoking the scripts, e.g.:
+## Optional: host alias for `blueprint`
 
-BP_EXTENSION_SLUG=recolor ./scripts/bootstrap.sh
+If you want to run `blueprint ...` directly on your host (without typing `docker compose ...`), run:
 
-## Notes
-
-This repository is a trimmed down example focusing on the bootstrapping logic and user creation. Refer to the official Blueprint documentation for more comprehensive guides on extension development and advanced Docker usage.
+```
+make alias
+source ~/.bashrc   # or ~/.zshrc
+blueprint -v
+```

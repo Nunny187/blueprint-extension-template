@@ -1,27 +1,18 @@
 <#
   Windows PowerShell script to bootstrap the Blueprint development environment.
 
-  This script mirrors the behaviour of the Bash `bootstrap.sh` script. It
-  initializes any Git submodules or clones the Blueprint Docker stack if
-  necessary, starts the docker compose stack with the appropriate override
-  configuration, installs the extension using the Blueprint CLI, and creates
-  default development users for convenience.
-  
-  Two users are created:
-    - dev  (admin=1, password "dev")
-    - test (admin=0, password "test")
-
-  Running this script multiple times is idempotent. If the users already exist
-  the creation commands will emit an error which is safely ignored.
+  Mirrors the Bash bootstrap: initializes the Blueprint Docker stack, ensures
+  configuration exists, starts the stack with overrides, and creates default
+  dev users.
 #>
 
 $ErrorActionPreference = "Stop"
 
-# Config (override by setting env vars before running)
+# Config (override via env vars)
 if (-not $env:BP_PANEL_SERVICE) { $env:BP_PANEL_SERVICE = "panel" }
 if (-not $env:BP_EXTENSION_SLUG) { $env:BP_EXTENSION_SLUG = "my-extension" }
 
-# Ensure submodule is initialized (preferred over git clone)
+# Initialize Blueprint stack (prefer submodule)
 if (Test-Path ".\.gitmodules") {
     git submodule update --init --recursive
 }
@@ -29,7 +20,7 @@ elseif (-not (Test-Path ".\stack")) {
     git clone https://github.com/BlueprintFramework/docker stack
 }
 
-# Ensure docker\.env exists – copy from example if missing
+# Ensure docker\.env exists
 if (-not (Test-Path ".\docker\.env")) {
     if (Test-Path ".\docker\.env.example") {
         Copy-Item ".\docker\.env.example" ".\docker\.env"
@@ -40,55 +31,45 @@ if (-not (Test-Path ".\docker\.env")) {
     }
 }
 
-# Populate secret values in docker\.env (safe for Docker env-file)
-$envPath = ".\docker\.env"
-$secretVars = @("MARIADB_ROOT_PASS", "MARIADB_USER_PASS", "VALKEY_PASS", "HASH_SALT")
-
-# Read as a single string for easier regex, preserve as UTF-8
-$envText = Get-Content $envPath -Raw
-
-foreach ($var in $secretVars) {
-    # Match line like VAR=.... (value may be empty/whitespace)
-    $pattern = "(?m)^\Q$var\E=(.*)$"
-
-    $needsSet = $true
-    $m = [regex]::Match($envText, $pattern)
-    if ($m.Success) {
-        # Treat blank/whitespace as missing
-        if ($m.Groups[1].Value -match "^\s*$") { $needsSet = $true } else { $needsSet = $false }
+# Ensure BP_HOST_WORKSPACE points at this repo on the host for bind mounts
+$repoRoot = (Resolve-Path "$PSScriptRoot\..").Path -replace "\\", "/"
+$envContent = Get-Content ".\docker\.env"
+if ($envContent -notmatch "^BP_HOST_WORKSPACE=" -or $envContent -match "^BP_HOST_WORKSPACE=$") {
+    if ($envContent -match "^BP_HOST_WORKSPACE=") {
+        (Get-Content ".\docker\.env") -replace "^BP_HOST_WORKSPACE=.*$", "BP_HOST_WORKSPACE=$repoRoot" | Set-Content ".\docker\.env"
     }
+    else {
+        Add-Content ".\docker\.env" "BP_HOST_WORKSPACE=$repoRoot"
+    }
+    Write-Host "Set BP_HOST_WORKSPACE=$repoRoot"
+}
 
-    if ($needsSet) {
-        $randomVal = ((& openssl rand -base64 32) | Out-String).Trim()
-
-        if ($m.Success) {
-            $envText = [regex]::Replace($envText, $pattern, "$var=$randomVal", 1)
+# Populate secret values in docker\.env
+$secretVars = @("MARIADB_ROOT_PASS", "MARIADB_USER_PASS", "VALKEY_PASS", "HASH_SALT")
+foreach ($var in $secretVars) {
+    $envContent = Get-Content ".\docker\.env"
+    if ($envContent -notmatch "^$var=" -or $envContent -match "^$var=$") {
+        $randomVal = & openssl rand -base64 32
+        if ($envContent -match "^$var=") {
+            (Get-Content ".\docker\.env") -replace "^$var=.*$", "$var=$randomVal" | Set-Content ".\docker\.env"
         }
         else {
-            if (-not $envText.EndsWith("`n")) { $envText += "`n" }
-            $envText += "$var=$randomVal`n"
+            Add-Content ".\docker\.env" "$var=$randomVal"
         }
-
         Write-Host "Generated $var"
     }
 }
 
-# Write back in UTF-8 so Docker can parse it
-Set-Content -Path $envPath -Value $envText -Encoding utf8
-
-# -----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------- 
 # Bring up docker stack with override
-
-# Bring up stack with your override
 docker compose --env-file .\docker\.env -f .\stack\docker-compose.yml -f .\docker\stack.override.yml up -d
 
 # Wait for Blueprint CLI to be available in the panel container
 Write-Host "Waiting for panel container to be ready..." -ForegroundColor Cyan
-Start-Sleep -Seconds 10
 $ready = $false
 for ($i = 0; $i -lt 60; $i++) {
     try {
-        docker compose -f .\stack\docker-compose.yml -f .\docker\stack.override.yml `
+        docker compose --env-file .\docker\.env -f .\stack\docker-compose.yml -f .\docker\stack.override.yml `
             exec -T $env:BP_PANEL_SERVICE sh -lc "command -v blueprint >/dev/null 2>&1" | Out-Null
         $ready = $true
         break
@@ -99,18 +80,14 @@ for ($i = 0; $i -lt 60; $i++) {
 }
 
 if (-not $ready) {
-    Write-Host "Panel did not become ready in time. Check logs with: docker compose -f .\stack\docker-compose.yml logs -f" -ForegroundColor Red
+    Write-Host "Panel did not become ready in time. Check logs with: docker compose --env-file .\docker\.env -f .\stack\docker-compose.yml -f .\docker\stack.override.yml logs -f" -ForegroundColor Red
     exit 1
 }
 
-# -----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------- 
 # Create default development users (dev/admin and test)
-#
-# Use the Pterodactyl Artisan CLI to generate accounts. These commands may
-# produce errors if the users already exist; these are caught and ignored so
-# subsequent runs do not fail.
 try {
-    docker compose -f .\stack\docker-compose.yml -f .\docker\stack.override.yml `
+    docker compose --env-file .\docker\.env -f .\stack\docker-compose.yml -f .\docker\stack.override.yml `
         exec -T $env:BP_PANEL_SERVICE php artisan p:user:make `
         --email="dev@example.com" `
         --username="dev" `
@@ -118,7 +95,7 @@ try {
         --name-last="User" `
         --password="dev" `
         --admin=1 | Out-Null
-    docker compose -f .\stack\docker-compose.yml -f .\docker\stack.override.yml `
+    docker compose --env-file .\docker\.env -f .\stack\docker-compose.yml -f .\docker\stack.override.yml `
         exec -T $env:BP_PANEL_SERVICE php artisan p:user:make `
         --email="test@example.com" `
         --username="test" `

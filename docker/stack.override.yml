@@ -1,6 +1,6 @@
 ﻿services:
   panel:
     volumes:
-      - ../extension:/app/.blueprint/dev/my-extension:cached
+      - ${BP_HOST_WORKSPACE}/extension:/app/.blueprint/dev:cached
     ports:
       - "4080:80"
