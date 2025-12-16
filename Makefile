@@ -10,35 +10,52 @@ BP_COMPOSE_ARGS := $(BP_COMPOSE_BASE) -f docker/stack.override.yml
 
 .PHONY: up down restart logs shell blueprint install bootstrap doctor alias
 
-bootstrap:
 ifeq ($(OS),Windows_NT)
-	powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1
+PS_CMD := powershell -ExecutionPolicy Bypass -File
+BOOTSTRAP_CMD := $(PS_CMD) ./scripts/bootstrap.ps1
+UP_CMD := $(PS_CMD) ./scripts/up.ps1
+DOWN_CMD := $(PS_CMD) ./scripts/down.ps1
+LOGS_CMD := $(PS_CMD) ./scripts/logs.ps1
+SHELL_CMD := $(PS_CMD) ./scripts/shell.ps1
+BLUEPRINT_CMD := $(PS_CMD) ./scripts/blueprint.ps1 $(ARGS)
+INSTALL_CMD := $(PS_CMD) ./scripts/install.ps1
+ALIAS_CMD := $(PS_CMD) ./scripts/alias-blueprint.ps1
 else
-	./scripts/bootstrap.sh
+BOOTSTRAP_CMD := ./scripts/bootstrap.sh
+UP_CMD := ./scripts/up.sh
+DOWN_CMD := ./scripts/down.sh
+LOGS_CMD := docker compose $(BP_COMPOSE_ARGS) logs -f --tail=200
+SHELL_CMD := docker compose $(BP_COMPOSE_ARGS) exec $(BP_PANEL_SERVICE) sh
+BLUEPRINT_CMD := ./scripts/blueprint.sh $(ARGS)
+INSTALL_CMD := ./scripts/install.sh
+ALIAS_CMD := ./scripts/alias-blueprint.sh
 endif
 
+bootstrap:
+	$(BOOTSTRAP_CMD)
+
 alias:
-	./scripts/alias-blueprint.sh
+	$(ALIAS_CMD)
 
 up:
-	./scripts/up.sh
+	$(UP_CMD)
 
 down:
-	./scripts/down.sh
+	$(DOWN_CMD)
 
 restart: down up
 
 logs:
-	docker compose $(BP_COMPOSE_ARGS) logs -f --tail=200
+	$(LOGS_CMD)
 
 shell:
-	docker compose $(BP_COMPOSE_ARGS) exec $(BP_PANEL_SERVICE) sh
+	$(SHELL_CMD)
 
 blueprint:
-	./scripts/blueprint.sh $(ARGS)
+	$(BLUEPRINT_CMD)
 
 install:
-	./scripts/install.sh
+	$(INSTALL_CMD)
 
 doctor:
 	@echo BP_COMPOSE_BASE=$(BP_COMPOSE_BASE)

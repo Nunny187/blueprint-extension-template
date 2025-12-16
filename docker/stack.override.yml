@@ -4,3 +4,9 @@
       - ${BP_HOST_WORKSPACE}/extension:/app/.blueprint/dev:cached
     ports:
       - "4080:80"
+  database:
+    volumes:
+      - stack_db:/var/lib/mysql
+
+volumes:
+  stack_db:

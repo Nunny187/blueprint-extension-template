@@ -8,6 +8,13 @@
 
 $ErrorActionPreference = "Stop"
 
+# Helper to generate base64 secrets without external dependencies
+function New-RandomBase64($bytes = 32) {
+    $buffer = New-Object byte[] $bytes
+    [System.Security.Cryptography.RandomNumberGenerator]::Fill($buffer)
+    [Convert]::ToBase64String($buffer)
+}
+
 # Config (override via env vars)
 if (-not $env:BP_PANEL_SERVICE) { $env:BP_PANEL_SERVICE = "panel" }
 if (-not $env:BP_EXTENSION_SLUG) { $env:BP_EXTENSION_SLUG = "my-extension" }
@@ -49,7 +56,7 @@ $secretVars = @("MARIADB_ROOT_PASS", "MARIADB_USER_PASS", "VALKEY_PASS", "HASH_S
 foreach ($var in $secretVars) {
     $envContent = Get-Content ".\docker\.env"
     if ($envContent -notmatch "^$var=" -or $envContent -match "^$var=$") {
-        $randomVal = & openssl rand -base64 32
+        $randomVal = New-RandomBase64 32
         if ($envContent -match "^$var=") {
             (Get-Content ".\docker\.env") -replace "^$var=.*$", "$var=$randomVal" | Set-Content ".\docker\.env"
         }
